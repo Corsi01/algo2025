@@ -1,50 +1,11 @@
-"""Extract Friends' or Movie10 visual or language features using advanced models.
-
-Visual features are extracted using ViNet (Video Saliency Model) with saliency
-masking to focus on visually salient regions. Statistical features (mean, std, max)
-are computed from the backbone representations.
-
-Language features are extracted using BERT with multiple pooling strategies:
-- Mean pooling across tokens
-- Max pooling across tokens  
-- Attention-weighted pooling
-- Standard deviation pooling
-
-The fMRI volumes were acquired with a repetition time (TR) of 1.49 seconds
-(i.e., one volume was acquired every 1.49 seconds). To facilitate pairing
-between stimulus features and fMRI data, this code extracts stimulus features
-independently for chunks of 1.49 seconds of multimodal movie stimuli.
-
-Parameters
-----------
-movie_type : str
-	String indicating whether to extract stimulus features for 'friends'
-	or 'movie10' movies.
-stimulus_type : str
-	Movie stimulus type for which the features are extracted. If movie_type is
-	'friends', Friends season ('s1', 's2', 's3', 's4', 's5', 's6'). If
-	movie_type is 'movie10', Movie10 movie (among 'bourne', 'figures', 'life',
-	'wolf').
-modality : str
-	Whether to extract 'visual' or 'language' features.
-tr : float
-	fMRI repetition time.
-num_used_tokens : int
-	Total number of tokens that are fed to the language model for each chunk,
-	including the tokens from the chunk of interest plus N tokens from previous
-	chunks (the maximum allowed by the model is 510).
-project_dir : str
-	Directory of the Algonauts 2025 folder.
-"""
-
 import argparse
 import os
 import torch
 from tqdm import tqdm
 
-from feature_extraction_utils_new import frames_transform, list_movie_splits
-from feature_extraction_utils_new import load_vinet_model, load_language_model, get_emotion_audio_model
-from feature_extraction_utils_new import extract_visual_features
+from feature_extraction_utils_new import frames_transform, define_frames_transform, list_movie_splits
+from feature_extraction_utils_new import load_vinet_model, load_language_model, get_emotion_audio_model. get_vision_model
+from feature_extraction_utils_new import extract_visual_features, extract_visual_features_videomae
 from feature_extraction_utils_new import extract_language_features
 from feature_extraction_utils_new import extract_lowlevel_audio_features, extract_audio_features, extract_emoton_audio_features
 
@@ -56,7 +17,7 @@ parser.add_argument('--movie_type', type=str, default='movie10',
 parser.add_argument('--stimulus_type', type=str, default='wolf',
 					help='Specific stimulus (season for friends, movie for movie10)')
 parser.add_argument('--modality', type=str, default='language',
-					choices=['visual', 'language', 'audio', 'audio_low', 'audio_emo'],
+					choices=['visual', 'visual_videomae','language', 'audio', 'audio_low', 'audio_emo'],
 					help='Type of features to extract')
 parser.add_argument('--tr', type=float, default=1.49,
 					help='fMRI repetition time')
@@ -100,6 +61,12 @@ if args.modality == 'visual':
 	model = load_vinet_model(device)
 	print('ViNet model loaded successfully')
 
+elif args.modality == 'visual_videomae':
+	# Load the video transform and model
+	transform = define_frames_transform(args)
+	feature_extractor, model_layer = get_vision_model(args, device)
+	print('VideoMAE2 model loaded successfully')
+
 elif args.modality == 'language':
 	# Load the BERT model and tokenizer
 	model, tokenizer = load_language_model(device)
@@ -129,6 +96,16 @@ for movie_split in tqdm(movie_splits_list, desc="Processing movie splits"):
 				model,
 				transform,
 				transform2,
+				device,
+				save_dir
+			)
+		elif args.modality == 'visual_videomae':
+			extract_visual_features_videomae(
+				args,
+				movie_split,
+				feature_extractor,
+				model_layer,
+				transform,
 				device,
 				save_dir
 			)
