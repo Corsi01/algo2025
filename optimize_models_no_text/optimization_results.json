@@ -1,0 +1,110 @@
+{
+  "dorsattn": {
+    "network": "dorsattn",
+    "study_name": "dorsattn_warmstart_20250709_113818",
+    "storage_path": "optimization_history.db",
+    "best_correlation": 0.29679450392723083,
+    "best_params": {
+      "lr": 0.0001,
+      "batch_size": 2048,
+      "hidden_dim": 700,
+      "embedding_dim": 150,
+      "dropout": 0.5,
+      "decay": 0.002
+    },
+    "best_subject_correlations": [
+      0.2899811267852783,
+      0.2906572222709656,
+      0.3252078592777252,
+      0.28133174777030945
+    ],
+    "original_correlation": 0.2955259382724762,
+    "improvement": 0.0012685656547546387,
+    "total_trials": 20,
+    "seed_trials": 4,
+    "seed": 777,
+    "timestamp": "2025-07-09T14:39:54.343421",
+    "warm_start": true
+  },
+  "multi": {
+    "network": "multi",
+    "study_name": "multi_warmstart_20250709_144420",
+    "storage_path": "optimization_history.db",
+    "best_correlation": 0.2138063907623291,
+    "best_params": {
+      "lr": 6.145281644306876e-05,
+      "batch_size": 2048,
+      "hidden_dim": 1127,
+      "embedding_dim": 323,
+      "dropout": 0.4557030723331186,
+      "decay": 0.0007069853846181249
+    },
+    "best_subject_correlations": [
+      0.20502547919750214,
+      0.21184958517551422,
+      0.23398514091968536,
+      0.20436535775661469
+    ],
+    "original_correlation": 0.21136601269245148,
+    "improvement": 0.0024403780698776245,
+    "total_trials": 30,
+    "seed_trials": 4,
+    "seed": 777,
+    "timestamp": "2025-07-09T20:04:35.171730",
+    "warm_start": true
+  },
+  "visual": {
+    "network": "visual",
+    "study_name": "visual_warmstart_20250710_212046",
+    "storage_path": "optimization_history.db",
+    "best_correlation": 0.38356101512908936,
+    "best_params": {
+      "lr": 6.027788271434628e-05,
+      "batch_size": 2048,
+      "hidden_dim": 636,
+      "embedding_dim": 198,
+      "dropout": 0.43094878630092703,
+      "decay": 0.002177679599328267
+    },
+    "best_subject_correlations": [
+      0.3585599660873413,
+      0.37873756885528564,
+      0.41860151290893555,
+      0.3783450722694397
+    ],
+    "original_correlation": 0.3811505436897278,
+    "improvement": 0.0024104714393615723,
+    "total_trials": 30,
+    "seed_trials": 4,
+    "seed": 777,
+    "timestamp": "2025-07-11T01:46:01.376136",
+    "warm_start": true
+  },
+  "sommot": {
+    "network": "sommot",
+    "study_name": "sommot_warmstart_20250711_093701",
+    "storage_path": "optimization_history.db",
+    "best_correlation": 0.2243172526359558,
+    "best_params": {
+      "lr": 0.0001,
+      "batch_size": 2048,
+      "hidden_dim": 800,
+      "embedding_dim": 150,
+      "dropout": 0.55,
+      "decay": 0.002
+    },
+    "best_subject_correlations": [
+      0.24581079185009003,
+      0.21931108832359314,
+      0.24200321733951569,
+      0.1901439130306244
+    ],
+    "original_correlation": 0.22371800243854523,
+    "improvement": 0.0005992501974105835,
+    "total_trials": 30,
+    "seed_trials": 4,
+    "seed": 777,
+    "timestamp": "2025-07-11T14:21:20.667532",
+    "warm_start": true
+  }
+}
