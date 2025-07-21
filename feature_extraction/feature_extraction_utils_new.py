@@ -81,6 +81,14 @@ def load_vinet_model(device):
 
 	return model
 
+def get_vision_model(args, device):
+	model = pretrain_videomae_giant_patch14_224()
+	checkpoint = torch.load("vit_g_hybrid_pt_1200e.pth", map_location="cpu")
+	model.load_state_dict(checkpoint["model"])
+	model.eval()
+	model = model.to(device)
+
+	return model, None
 
 def load_language_model(device):
     """Load the RoBERTa-base model with proper configuration.
