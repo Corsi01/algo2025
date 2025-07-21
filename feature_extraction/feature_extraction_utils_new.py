@@ -12,21 +12,19 @@ from PIL import Image
 import panns_inference
 from panns_inference import AudioTagging
 import librosa
-import moten
 import cv2
 import opensmile
 import audeer
 import audonnx
 import torchaudio
-
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as T
 from tqdm import tqdm
-
-from multiprocessing import Pool, cpu_count
-from functools import partial
-
+from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
+from torchvision.transforms import Compose, Lambda, CenterCrop
+from pytorchvideo.transforms import Normalize, UniformTemporalSubsample, ShortSideScale
+from models import pretrain_videomae_giant_patch14_224
 
 def frames_transform(args):
 	"""Define the transforms for ViNet model input frames.
@@ -56,6 +54,43 @@ def frames_transform(args):
 	])
 
 	return transform, transform2
+
+def define_frames_transform(args):
+	"""Define the transform of the video frames for later input to the DNN.
+	https://pytorch.org/hub/facebookresearch_pytorchvideo_resnet/
+
+	Parameters
+	----------
+	args : Namespace
+		Input arguments.
+
+	Returns
+	-------
+	transform : object
+		Video frames transform.
+
+	"""
+
+	side_size = 256
+	mean = [0.485, 0.456, 0.406]
+	std = [0.229, 0.224, 0.225]
+	crop_size = 224
+	num_frames = 16
+
+	# Note that this transform is specific to the slow_R50 model.
+	transform = Compose(
+		[
+			UniformTemporalSubsample(num_frames),
+			Lambda(lambda x: x/255.0),
+			Normalize(mean, std),
+			Lambda(lambda x: F.interpolate(x.permute(1,0,2,3),
+										   size=(crop_size, crop_size),
+										   mode='bicubic').permute(1,0,2,3).contiguous()),
+		]
+	)
+
+	### Output ###
+	return transform
 
 
 def load_vinet_model(device):
@@ -379,6 +414,91 @@ def extract_visual_features(args, movie_split, model,
 		group.create_dataset('visual', data=visual_features, dtype=np.float32)
 	
 	print(f"Saved {movie_split} visual features with shape {visual_features.shape}")
+
+def extract_visual_features_videomae(args, movie_split, feature_extractor, model_layer,
+	transform, device, save_dir):
+	"""Extract and save the visual features from the .mkv file of the selected
+	movie split.
+
+	Parameters
+	----------
+	args : Namespace
+		Input arguments.
+	movie_split : str
+		Movie split for which the features are extracted and saved.
+	feature_extractor : object
+		Video model feature extractor object.
+	model_layer : str
+		Used model layer.
+	transform : object
+		Video frames transform.
+	device : str
+		Whether to compute on 'cpu' or 'gpu'.
+	save_dir : str
+		Save directory.
+
+	"""
+
+	### Temporary directory ###
+	temp_dir = os.path.join(save_dir, 'temp')
+	if os.path.isdir(temp_dir) == False:
+		os.makedirs(temp_dir)
+
+	### Stimulus path ###
+	if args.movie_type == 'friends':
+		stim_path = os.path.join(args.project_dir, 'data',
+			'algonauts_2025.competitors', 'stimuli', 'movies', args.movie_type,
+			args.stimulus_type, 'friends_'+movie_split+'.mkv')
+	elif args.movie_type == 'movie10':
+		stim_path = os.path.join(args.project_dir, 'data',
+			'algonauts_2025.competitors', 'stimuli', 'movies', args.movie_type,
+			args.stimulus_type, movie_split+'.mkv')
+
+	### Divide the movie in chunks of length TR ###
+	clip = VideoFileClip(stim_path)
+	start_times = [x for x in np.arange(0, clip.duration, args.tr)][:-1]
+
+	### Loop over movie chunks ###
+	visual_features = []
+	for start in start_times:
+
+		### Save the chunk clips ###
+		clip_chunk = clip.subclip(start, start + args.tr)
+		chunk_path = os.path.join(temp_dir, 'visual_'+str(args.stimulus_type)+
+			'.mp4')
+		clip_chunk.write_videofile(chunk_path, verbose=False)
+
+		### Load the video chunk frames ###
+		video_clip = VideoFileClip(chunk_path)
+		chunk_frames = [chunk_frames for chunk_frames in video_clip.iter_frames()]
+	
+		### Format the frames ###
+		# Pytorch video models usually require shape:
+		# [batch_size, channel, number_of_frame, height, width]
+		frames_array = np.transpose(chunk_frames, [3, 0, 1, 2])
+
+		### Transform the frames for DNN feature extraction ###
+		inputs = torch.from_numpy(frames_array)
+		inputs = transform(inputs)
+		inputs = inputs.expand(1, -1, -1, -1, -1)
+		inputs = inputs.to(device)
+
+		### Extract the visual features ###
+		with torch.no_grad():
+			preds = feature_extractor(inputs)
+		visual_features.append(
+			np.reshape(preds.cpu().numpy(), -1))
+
+	### Format the visual features ###
+	visual_features = np.array(visual_features, dtype='float32')
+
+	### Save the visual features ###
+	out_file = os.path.join(save_dir, args.movie_type+'_'+args.stimulus_type+
+		'_features_visual.h5')
+	flag = 'a' if Path(out_file).exists() else 'w'
+	with h5py.File(out_file, flag) as f:
+		group = f.create_group(movie_split)
+		group.create_dataset('visual', data=visual_features, dtype=np.float32)
 
 
 def extract_language_features(args, movie_split, model, tokenizer, device, save_dir):
