@@ -14,8 +14,13 @@ from panns_inference import AudioTagging
 import librosa
 import moten
 import cv2
+import opensmile
+import audeer
+import audonnx
+import torchaudio
 
 import torch
+import torch.nn.functional as F
 import torchvision.transforms as T
 from tqdm import tqdm
 
@@ -77,35 +82,6 @@ def load_vinet_model(device):
 	return model
 
 
-#def load_language_model(device):
-	"""Load the BERT model with proper configuration.
-	
-	Parameters
-	----------
-	device : str
-		Device to load the model on ('cuda' or 'cpu').
-	
-	Returns
-	-------
-	model : BertModel
-		Configured BERT model.
-	tokenizer : BertTokenizer
-		BERT tokenizer.
-	"""
-	#from transformers import BertTokenizer, BertModel
-	
-	#tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
-	#model = BertModel.from_pretrained('bert-base-uncased')
-	#model.eval()
-	#model = model.to(device)
-	
-	# Enable output of hidden states and attentions
-	#model.config.output_hidden_states = True  
-	#model.config.output_attentions = True
-	
-	#return model, tokenizer
-
-
 def load_language_model(device):
     """Load the RoBERTa-base model with proper configuration.
 
@@ -134,6 +110,32 @@ def load_language_model(device):
 
     print("RoBERTa-base loaded successfully!")
     return model, tokenizer
+
+
+def get_emotion_audio_model(device):
+	"""Load the emotion audio model for extracting emotional features.
+	
+	Parameters
+	----------
+	device : str
+		Device to load the model on ('cuda' or 'cpu').
+	
+	Returns
+	-------
+	processor : None
+		Processor (not used in this implementation).
+	model : audonnx model
+		Loaded emotion audio model.
+	"""
+	url = 'https://zenodo.org/record/6221127/files/w2v2-L-robust-12.6bc4a7fd-1.1.0.zip'
+	cache_root = audeer.mkdir('cache')
+	model_root = audeer.mkdir('model')
+
+	archive_path = audeer.download_url(url, cache_root, verbose=True)
+	audeer.extract_archive(archive_path, model_root)
+	model = audonnx.load(model_root)
+	return None, model
+
 
 def list_movie_splits(args):
 	"""List the available movies splits for the selected movie type, for which
@@ -187,6 +189,7 @@ def list_movie_splits(args):
 def extract_visual_features(args, movie_split, model, 
 	transform, transform2, device, save_dir):
 	"""Extract and save saliency-masked visual features from video chunks.
+	Includes automatic resume functionality and frame limiting for high fps videos.
 	
 	Parameters
 	----------
@@ -205,6 +208,35 @@ def extract_visual_features(args, movie_split, model,
 	save_dir : str
 		Directory to save features.
 	"""
+	
+	# RESUME LOGIC: Setup output file and handle resume
+	out_file = os.path.join(save_dir, args.movie_type+'_'+args.stimulus_type+
+		'_features_visual.h5')
+	
+	# Always check and remove last incomplete split if file exists
+	if os.path.exists(out_file):
+		try:
+			# Read existing splits
+			with h5py.File(out_file, 'r') as f:
+				splits = sorted(list(f.keys()))
+			
+			if splits:
+				last_split = splits[-1]
+				
+				# If current movie_split is the last one, remove it (presumed incomplete)
+				if movie_split == last_split:
+					with h5py.File(out_file, 'a') as f:
+						if last_split in f:
+							del f[last_split]
+							print(f"Removed potentially incomplete split: {last_split}")
+				
+				# If current movie_split is already processed (and not the last), skip it
+				elif movie_split in splits:
+					print(f"{movie_split} already processed, skipping...")
+					return
+					
+		except Exception as e:
+			print(f"Error handling resume: {e}")
 
 	# Set up hook to capture backbone features
 	last_output = None
@@ -249,6 +281,13 @@ def extract_visual_features(args, movie_split, model,
 			### Load the video chunk frames ###
 			video_chunk = VideoFileClip(chunk_path)
 			frames = [chunk_frames for chunk_frames in video_chunk.iter_frames()]
+			
+			# FIX: Limit to 44 frames if there are too many (to handle 60fps videos)
+			original_frame_count = len(frames)
+			if len(frames) > 50:
+				indices = np.linspace(0, len(frames)-1, 44, dtype=int)
+				frames = [frames[i] for i in indices]
+				print(f"DEBUG: Reduced frames from {original_frame_count} to {len(frames)} for {movie_split}")
 		
 			if len(frames) == 0:
 				print(f"Warning: No frames extracted for chunk at {start:.2f}s")
@@ -325,12 +364,9 @@ def extract_visual_features(args, movie_split, model,
 		visual_features = np.array(visual_features, dtype='float32')
 
 	### Save the visual features ###
-	out_file = os.path.join(save_dir, args.movie_type+'_'+args.stimulus_type+
-		'_features_visual.h5')
 	flag = 'a' if Path(out_file).exists() else 'w'
 	with h5py.File(out_file, flag) as f:
-		if movie_split in f:
-			del f[movie_split]  # Remove existing group if present
+		# Resume friendly - no automatic deletion
 		group = f.create_group(movie_split)
 		group.create_dataset('visual', data=visual_features, dtype=np.float32)
 	
@@ -339,6 +375,7 @@ def extract_visual_features(args, movie_split, model,
 
 def extract_language_features(args, movie_split, model, tokenizer, device, save_dir):
 	"""Extract and save advanced language features with multiple pooling strategies.
+	Uses enhanced attention matrix features from the second script.
 
 	Parameters
 	----------
@@ -346,9 +383,9 @@ def extract_language_features(args, movie_split, model, tokenizer, device, save_
 		Input arguments.
 	movie_split : str
 		Movie split for which the features are extracted and saved.
-	model : BertModel
-		BERT model with hidden states and attention outputs enabled.
-	tokenizer : BertTokenizer
+	model : RobertaModel
+		RoBERTa model with hidden states and attention outputs enabled.
+	tokenizer : RobertaTokenizer
 		Tokenizer corresponding to the language model.
 	device : str
 		Whether to compute on 'cpu' or 'gpu'.
@@ -386,7 +423,7 @@ def extract_language_features(args, movie_split, model, tokenizer, device, save_
 			chunk_tokens = tokenizer.tokenize(tr_clean)
    
 			if len(chunk_tokens) == 0:
-				pooled_all.append(np.full(768 * 4, np.nan, dtype=np.float32))
+				pooled_all.append(np.full((12*12*11 + 768*3), np.nan, dtype=np.float32))
 				continue
     
 			tokens.extend(chunk_tokens)
@@ -397,40 +434,47 @@ def extract_language_features(args, movie_split, model, tokenizer, device, save_
 			with torch.no_grad():
 				outputs = model(input_tensor)
 				layer8 = outputs.hidden_states[8][0][1:-1]  # (T, 768)
+				    
+				all_layers = []
+				for layer in outputs.attentions:
+					attn = layer[:, :, 1:-1, 1:-1]
+					attn = attn.mean(dim=-1)
+					pad_len = 11 - attn.size(-1)
+
+					if pad_len > 0:
+						attn = F.pad(attn, (pad_len, 0), value=0)  # pad left
+					elif pad_len < 0:
+						attn = attn[:, :, -11:]
+					#### if pad_len == 0, do nothing, already correct
+
+					attn_np = attn.squeeze(0).cpu().numpy().flatten()
+					all_layers.append(attn_np)
+				feat = np.concatenate(all_layers)
+
+				chunk_len = len(chunk_tokens)
+				chunk_embeds = layer8[-chunk_len:].cpu().numpy()
 				
-				attn = outputs.attentions[8][0, :, 0, 1:-1]
-				#print(f"attn shape BEFORE mean: {attn.shape}")
-				attn_weights = attn.mean(dim=0).cpu().numpy()
-				#print(f"attn_weights shape AFTER mean: {attn_weights.shape}")		
+				# Multiple pooling strategies
+				# Pooling 1 - Mean
+				mean_pool = np.mean(chunk_embeds, axis=0)
+				# Pooling 2 - Max
+				max_pool = np.max(chunk_embeds, axis=0)
+				# Pooling 3 - Standard Deviation
+				std_pool = np.std(chunk_embeds, axis=0)
 				
-			chunk_len = len(chunk_tokens)
-			chunk_embeds = layer8[-chunk_len:].cpu().numpy()
-			attn_weights = attn_weights[-chunk_len:]  
-			attn_weights = attn_weights / attn_weights.sum() if attn_weights.sum() > 0 else None
-		
-			# Multiple pooling strategies
-			# Pooling 1 - Mean
-			mean_pool = np.mean(chunk_embeds, axis=0)
-			# Pooling 2 - Max
-			max_pool = np.max(chunk_embeds, axis=0)
-			# Pooling 3 - Attention-weighted
-			attn_pool = np.average(chunk_embeds, axis=0, weights=attn_weights) if attn_weights is not None else mean_pool
-			# Pooling 4 - Standard Deviation
-			std_pool = np.std(chunk_embeds, axis=0)
-			
-			# Concatenate all pooling results
-			pooled = np.concatenate([
-				mean_pool,
-				max_pool,
-				attn_pool,
-				std_pool
-			], axis=0)
-			
-			pooled_all.append(pooled.astype(np.float32))
+				# Concatenate all pooling results
+				pooled = np.concatenate([
+					mean_pool,
+					max_pool,
+					std_pool,
+					feat
+				], axis=0)
+				
+				pooled_all.append(pooled.astype(np.float32))
         
 		else:
 			# No text in this TR
-			pooled_all.append(np.full(768 * 4, np.nan, dtype=np.float32))
+			pooled_all.append(np.full((12*12*11 + 768*3), np.nan, dtype=np.float32))
 
 	### Format features ###
 	pooled_all = np.array(pooled_all, dtype='float32')
@@ -446,12 +490,11 @@ def extract_language_features(args, movie_split, model, tokenizer, device, save_
 		group.create_dataset('language', data=pooled_all, dtype=np.float32)
 	
 	print(f"Saved {movie_split} language features with shape {pooled_all.shape}")
- 
- 
+
 
 def extract_audio_features(args, movie_split, device, save_dir):
 	"""Extract and save the audio features from the .mkv file of the selected
-	movie split.
+	movie split using PANNs.
 	Parameters
 	----------
 	args : Namespace
@@ -498,7 +541,6 @@ def extract_audio_features(args, movie_split, device, save_dir):
 		### Load the video chunk audio ###
 		y, sr = librosa.load(chunk_path, sr=args.sr, mono=True)
 		
-		
 		### Extract PANNs features ###
 		# PANNs expects 32kHz, so resample if needed
 		if sr != 32000:
@@ -526,101 +568,172 @@ def extract_audio_features(args, movie_split, device, save_dir):
 	with h5py.File(out_file, flag) as f:
 		group = f.create_group(movie_split)
 		group.create_dataset('audio', data=audio_features_panns, dtype=np.float32)
-  
-  
-def process_chunk_motion(stim_path, start, tr, fps, target_H, target_W, pyramid_params):
-    import warnings
-    warnings.filterwarnings("ignore")
-    from moviepy.editor import VideoFileClip
-    import moten
-
-    temp_path = f"temp_chunk_{start:.2f}.mp4"
-    try:
-        VideoFileClip(stim_path).subclip(start, start + tr).write_videofile(
-            temp_path, audio=False, verbose=False, logger=None)
-    except:
-        return np.zeros(pyramid_params['n_features'], dtype=np.float32)
-
-    try:
-        luminance = moten.io.video2luminance(temp_path, nimages=int(tr * fps))
-        os.remove(temp_path)
-    except:
-        os.remove(temp_path)
-        return np.zeros(pyramid_params['n_features'], dtype=np.float32)
-
-    T, _, _ = luminance.shape
-    resized = np.zeros((T, target_H, target_W), dtype=np.float32)
-    for t in range(T):
-        resized[t] = cv2.resize(luminance[t], (target_W, target_H), interpolation=cv2.INTER_AREA)
-
-    pyramid = moten.pyramids.MotionEnergyPyramid(
-    	stimulus_vhsize=(target_H, target_W),
-    	stimulus_fps=fps,
-    	temporal_frequencies=[2, 4],         
-    	spatial_frequencies=[4, 8, 16],          
-    	spatial_directions=[0, 45, 90, 135, 180]
-)
-
-    try:
-        features = pyramid.project_stimulus(resized).mean(axis=0)
-    except:
-        features = np.zeros(pyramid_params['n_features'], dtype=np.float32)
-
-    return features
 
 
-
-def extract_motion_features(args, movie_split, save_dir='.'):
-    out_file = os.path.join(save_dir, f"{args.movie_type}_{args.stimulus_type}_features_motion.h5")
-    flag = 'a' if Path(out_file).exists() else 'w'
-
-    # Skip if already processed
-    if flag == 'a':
-        with h5py.File(out_file, 'r') as f:
-            if movie_split in f:
-                print(f"✔ Skipping '{movie_split}' — already extracted.")
-                return
-
+def extract_lowlevel_audio_features(args, movie_split, device, save_dir):
+    """Extract and save the low-level audio features from the .mkv file of the selected
+    movie split using OpenSMILE.
+    Parameters
+    ----------
+    args : Namespace
+        Input arguments.
+    movie_split : str
+        Movie split for which the features are extracted and saved.
+    device : str
+        Whether to compute on 'cpu' or 'gpu'.
+    save_dir : str
+        Save directory.
+    """
+    ### Temporary directory ###
+    temp_dir = os.path.join(save_dir, 'temp')
+    if os.path.isdir(temp_dir) == False:
+        os.makedirs(temp_dir)
+    
+    ### Initialize OpenSMILE model ###
+    # OpenSMILE with eGeMAPS (88 features ottimizzate per emozioni)
+    smile = opensmile.Smile(
+        feature_set=opensmile.FeatureSet.eGeMAPSv02,
+        feature_level=opensmile.FeatureLevel.Functionals,
+    )
+    
+    ### Stimulus path ###
     if args.movie_type == 'friends':
         stim_path = os.path.join(args.project_dir, 'data',
             'algonauts_2025.competitors', 'stimuli', 'movies', args.movie_type,
-            args.stimulus_type, f'friends_{movie_split}.mkv')
+            args.stimulus_type, 'friends_'+movie_split+'.mkv')
     elif args.movie_type == 'movie10':
         stim_path = os.path.join(args.project_dir, 'data',
             'algonauts_2025.competitors', 'stimuli', 'movies', args.movie_type,
-            args.stimulus_type, f'{movie_split}.mkv')
-
+            args.stimulus_type, movie_split+'.mkv')
+    
+    ### Divide the movie in chunks of length TR ###
     clip = VideoFileClip(stim_path)
-    fps = int(clip.fps)
-    tr = args.tr
-    start_times = [x for x in np.arange(0, clip.duration, tr)][:-1]
-
-    H, W = clip.h, clip.w
-    target_H, target_W = H // 4, W // 4
-
-    pyramid_params = {
-        'temporal_frequencies': [2, 4],
-        'spatial_frequencies': [4, 8, 16],
-        'orientations': 5,
-        'n_features': 930
-    }
-
-    func = partial(
-        process_chunk_motion,
-        stim_path,
-        tr=tr,
-        fps=fps,
-        target_H=target_H,
-        target_W=target_W,
-        pyramid_params=pyramid_params
-    )
-
-    print(f"Using {cpu_count()} CPU cores for motion feature extraction...")
-    with Pool(processes=cpu_count()) as pool:
-        visual_features = list(tqdm(pool.imap(func, start_times), total=len(start_times)))
-
-    visual_features = np.array(visual_features, dtype=np.float32)
-
+    start_times = [x for x in np.arange(0, clip.duration, args.tr)][:-1]
+    
+    ### Loop over movie chunks ###
+    audio_features_opensmile = []
+    
+    for start in start_times:
+        ### Save the chunk clips ###
+        clip_chunk = clip.subclip(start, start + args.tr)
+        chunk_path = os.path.join(temp_dir, 'audio_'+str(args.stimulus_type)+
+            '.wav')
+        clip_chunk.audio.write_audiofile(chunk_path, verbose=False)
+        
+        ### Extract OpenSMILE features ###
+        try:
+            # OpenSMILE può lavorare direttamente sul file
+            smile_features = smile.process_file(chunk_path)
+            # smile_features è un DataFrame, prendiamo i valori
+            audio_features_opensmile.append(smile_features.values.flatten())
+        except Exception as e:
+            print(f"OpenSMILE error for chunk {start}: {e}")
+            # Fallback: zero vector (eGeMAPS ha 88 features)
+            audio_features_opensmile.append(np.zeros(88, dtype=np.float32))
+    
+    ### Format the audio features ###
+    audio_features_opensmile = np.array(audio_features_opensmile, dtype='float32')
+    
+    ### Save the audio features ###
+    out_file = os.path.join(save_dir, args.movie_type+'_'+args.stimulus_type+
+        '_features_audio_low_level.h5')
+    flag = 'a' if Path(out_file).exists() else 'w'
     with h5py.File(out_file, flag) as f:
         group = f.create_group(movie_split)
-        group.create_dataset('motion', data=visual_features, dtype='float32')
+        group.create_dataset('audio_opensmile', data=audio_features_opensmile, dtype=np.float32)
+
+
+@torch.no_grad()
+def extract_emotion_audio_features(args, movie_split, processor, model, device, save_dir):
+	"""Extract and save the emotion audio features from the .mkv file of the selected
+	movie split. Extracts both hidden states and logits for emotion recognition.
+
+	Parameters
+	----------
+	args : Namespace
+		Input arguments.
+	movie_split : str
+		Movie split for which the features are extracted and saved.
+	processor : None
+		Processor (not used in this implementation).
+	model : audonnx model
+		Emotion audio model.
+	device : str
+		Whether to compute on 'cpu' or 'gpu'.
+	save_dir : str
+		Save directory.
+	"""
+
+	### Temporary directory ###
+	temp_dir = os.path.join(save_dir, 'temp')
+	if os.path.isdir(temp_dir) == False:
+		os.makedirs(temp_dir)
+
+	### Stimulus path ###
+	if args.movie_type == 'friends':
+		stim_path = os.path.join(args.project_dir, 'data',
+			'algonauts_2025.competitors', 'stimuli', 'movies', args.movie_type,
+			args.stimulus_type, 'friends_'+movie_split+'.mkv')
+	elif args.movie_type == 'movie10':
+		stim_path = os.path.join(args.project_dir, 'data',
+			'algonauts_2025.competitors', 'stimuli', 'movies', args.movie_type,
+			args.stimulus_type, movie_split+'.mkv')
+
+	### Divide the movie in chunks of length TR ###
+	clip = VideoFileClip(stim_path)
+	start_times = [x for x in np.arange(0, clip.duration, args.tr)][:-1]
+
+	### Loop over movie chunks ###
+	audio_features = []
+	audio_logits = []
+	for start in start_times:
+
+		### Save the chunk clips ###
+		clip_chunk = clip.subclip(start, start + args.tr)
+		chunk_path = os.path.join(temp_dir, 'audio_'+str(args.stimulus_type)+
+			'.wav')
+		clip_chunk.audio.write_audiofile(chunk_path, verbose=False)
+
+		### Load the video chunk audio ###
+		y, sr = torchaudio.load(chunk_path)
+		y = y.mean(0)  # stereo to mono
+		resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)
+		y = resampler(y)
+
+		### Extract the emotion audio features ###
+		try:
+			res = model(y.numpy(), 16000)
+			audio_features.append(res['hidden_states'])
+			audio_logits.append(res['logits'])
+		except Exception as e:
+			print(f"Emotion audio error for chunk {start}: {e}")
+			# Fallback: zero vectors (sizes depend on model output)
+			audio_features.append(np.zeros(1024, dtype=np.float32))  # Typical hidden state size
+			audio_logits.append(np.zeros(8, dtype=np.float32))  # Typical emotion class size
+
+	### Format the emotion audio features ###
+	audio_features = np.array(audio_features, dtype='float32')
+	audio_logits = np.array(audio_logits, dtype='float32')
+
+	### Save the emotion audio features ###
+	out_file = os.path.join(save_dir, args.movie_type+'_'+args.stimulus_type+
+		'_emo_features_audio.h5')
+	flag = 'a' if Path(out_file).exists() else 'w'
+	with h5py.File(out_file, flag) as f:
+		if movie_split in f:
+			del f[movie_split]
+		group = f.create_group(movie_split)
+		group.create_dataset('audio', data=audio_features, dtype=np.float32)
+
+	### Save the emotion audio logits ###
+	out_file = os.path.join(save_dir, args.movie_type+'_'+args.stimulus_type+
+		'_emo_logits_audio.h5')
+	flag = 'a' if Path(out_file).exists() else 'w'
+	with h5py.File(out_file, flag) as f:
+		if movie_split in f:
+			del f[movie_split]
+		group = f.create_group(movie_split)
+		group.create_dataset('audio', data=audio_logits, dtype=np.float32)
+
+	print(f"Saved {movie_split} emotion audio features with shape {audio_features.shape}")
+	print(f"Saved {movie_split} emotion audio logits with shape {audio_logits.shape}")
