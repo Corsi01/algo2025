@@ -18,7 +18,7 @@ from PIL import Image
 import cv2
 import torch
 import torchvision.transforms as T
-#import torchaudio
+import torchaudio
 import audeer
 import audonnx
 
