@@ -12,11 +12,8 @@ from utilities import (
     train_final_model_on_all_data,
     evaluate_multitask_model,
     evaluate_multitask_model_by_network,
-    create_ensemble_from_saved_models,
     make_prediction,
-    get_network_parcels,
-    setup_model_configurations,
-    set_seed
+    get_network_parcels
 )
 from optimization_utils import (
     optimize_network_hyperparams,
@@ -24,7 +21,103 @@ from optimization_utils import (
     load_optimization_results,
     show_optimization_results
 )
-from data_utils import load_stimulus_features, load_fmri, atlas_schaefer, compute_encoding_accuracy
+from ..data_utils import load_fmri, atlas_schaefer, compute_encoding_accuracy, set_seed
+
+root_data_dir = '../../data'
+modality = 'all'
+
+def load_stimulus_features(root_data_dir, modality):
+    
+    features = {}
+    ### Load the audio features ###
+    if modality == 'audio' or modality == 'all':
+        stimuli_dir = os.path.join(root_data_dir, 'results', 'stimulus_features',
+            'pca', 'friends_movie10', 'audio_emo', 'features_train.npy')
+        features['audio'] = np.load(stimuli_dir, allow_pickle=True).item()
+        
+    ### Load the language features ###
+    if modality == 'audio2' or modality == 'all':
+        stimuli_dir = os.path.join(root_data_dir, 'results', 'stimulus_features', 
+            'pca', 'friends_movie10', 'audio', 'features_train.npy')
+        features['audio2'] = np.load(stimuli_dir, allow_pickle=True).item()
+
+    ### Load the language features ###
+    if modality == 'language' or modality == 'all':
+        stimuli_dir = os.path.join(root_data_dir ,'results', 'stimulus_features', 
+            'pca', 'friends_movie10', 'language_multi', 'features_train.npy')
+        features['language_pooled'] = np.load(stimuli_dir, allow_pickle=True).item()
+        
+    if modality == 'saliency' or modality == 'all':
+        stimuli_dir = os.path.join(root_data_dir, 'results', 'stimulus_features', 
+            'pca', 'friends_movie10', 'visual', 'features_train.npy')
+        features['saliency'] = np.load(stimuli_dir, allow_pickle=True).item()
+    
+    return features
+
+def create_ensemble_from_saved_models(visual_path, dorsattn_path, sommot_path, multi_path,
+                                     parcel_list_visual, parcel_list_dorsattn, 
+                                     parcel_list_sommot, parcel_list_multi,
+                                     model_configs, feature_configs, subject_mappings,
+                                     total_parcels=1000):
+    """
+    Create ensemble from multisubject saved models
+    """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Load each MultiSubjectMLP with its specific configuration
+    visual_model = MultiSubjectMLP(**model_configs['visual'])
+    visual_model.load_state_dict(torch.load(visual_path, map_location=device))
+    
+    dorsattn_model = MultiSubjectMLP(**model_configs['dorsattn'])
+    dorsattn_model.load_state_dict(torch.load(dorsattn_path, map_location=device))
+    
+    sommot_model = MultiSubjectMLP(**model_configs['sommot'])
+    sommot_model.load_state_dict(torch.load(sommot_path, map_location=device))
+    
+    multi_model = MultiSubjectMLP(**model_configs['multi'])
+    multi_model.load_state_dict(torch.load(multi_path, map_location=device))
+    
+    # Create ensemble
+    ensemble = EnsembleNetworkModel(
+        visual_model, dorsattn_model, sommot_model, multi_model,
+        parcel_list_visual, parcel_list_dorsattn, parcel_list_sommot, parcel_list_multi,
+        feature_configs, subject_mappings, total_parcels
+    )
+    
+    return ensemble.to(device)
+
+
+def setup_model_configurations(parcel_lists):
+    """
+    Setup of configurations for different models
+    """
+    model_configs = {
+        'visual': {'input_dim': 8250, 'embedding_dim': 150, 'hidden_dim': 700, 
+                  'output_dim': len(parcel_lists['vis']), 'num_subjects': 4},
+        'dorsattn': {'input_dim': 8250, 'embedding_dim': 150, 'hidden_dim': 700,
+                    'output_dim': len(parcel_lists['dorsattn']), 'num_subjects': 4},
+        'sommot': {'input_dim': 10750, 'embedding_dim': 150, 'hidden_dim': 800,
+                  'output_dim': len(parcel_lists['sommot']), 'num_subjects': 4},
+        'multi': {'input_dim': 7000, 'embedding_dim': 256, 'hidden_dim': 1000,
+                 'output_dim': len(parcel_lists['multi']), 'num_subjects': 4}
+    }
+
+    feature_configs = {
+        'visual': {'type': 'same', 'indices': None},     
+        'dorsattn': {'type': 'same', 'indices': None},  
+        'sommot': {'type': 'different', 'indices': None}, 
+        'multi': {'type': 'subset', 'indices': slice(0, 7000)} 
+    }
+
+    subject_mappings = {
+        'visual': {1: 0, 2: 1, 3: 2, 5: 3},
+        'dorsattn': {1: 0, 2: 1, 3: 2, 5: 3},
+        'sommot': {1: 0, 2: 1, 3: 2, 5: 3},
+        'multi': {1: 0, 2: 1, 3: 2, 5: 3}
+    }
+    
+    return model_configs, feature_configs, subject_mappings
+
 
 class MultiSubjectTrainer:
     """
