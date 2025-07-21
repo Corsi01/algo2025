@@ -42,15 +42,11 @@ import os
 import torch
 from tqdm import tqdm
 
-from feature_extraction_utils_new import frames_transform
-from feature_extraction_utils_new import load_vinet_model
-from feature_extraction_utils_new import load_language_model
-from feature_extraction_utils_new import list_movie_splits
-from feature_extraction_utils_new2 import extract_visual_features
-#from feature_extraction_utils_new2 import extract_language_features, extract_lowlevel_audio_features
-from feature_extraction_utils_new import extract_audio_features
-from feature_extraction_utils_new import extract_motion_features
-from feature_extraction_utils_new import process_chunk_motion
+from feature_extraction_utils_new import frames_transform, list_movie_splits
+from feature_extraction_utils_new import load_vinet_model, load_language_model, get_emotion_audio_model
+from feature_extraction_utils_new import extract_visual_features
+from feature_extraction_utils_new import extract_language_features
+from feature_extraction_utils_new import extract_lowlevel_audio_features, extract_audio_features, extract_emoton_audio_features
 
 
 parser = argparse.ArgumentParser()
@@ -60,7 +56,7 @@ parser.add_argument('--movie_type', type=str, default='movie10',
 parser.add_argument('--stimulus_type', type=str, default='wolf',
 					help='Specific stimulus (season for friends, movie for movie10)')
 parser.add_argument('--modality', type=str, default='language',
-					choices=['visual', 'language', 'audio', 'motion', 'emotion', 'audio_low'],
+					choices=['visual', 'language', 'audio', 'audio_low', 'audio_emo'],
 					help='Type of features to extract')
 parser.add_argument('--tr', type=float, default=1.49,
 					help='fMRI repetition time')
@@ -86,7 +82,7 @@ print(f'\nUsing device: {device}')
 # Output directory
 # =============================================================================
 save_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
-	'raw_new3', args.movie_type, args.modality)
+	'raw_', args.movie_type, args.modality)
 
 if not os.path.isdir(save_dir):
 	os.makedirs(save_dir)
@@ -107,6 +103,9 @@ if args.modality == 'visual':
 elif args.modality == 'language':
 	# Load the BERT model and tokenizer
 	model, tokenizer = load_language_model(device)
+
+elif args.modality == 'audio_emo':
+	processor, model = get_emotion_audio_model(device)
 
 # =============================================================================
 # Get movie splits
@@ -152,17 +151,20 @@ for movie_split in tqdm(movie_splits_list, desc="Processing movie splits"):
 				save_dir
 			)
    
-		elif args.modality == 'motion':
-			extract_motion_features(
-				args,
-				movie_split,
-				save_dir
-			)
-   
 		elif args.modality == 'audio_low':
 			extract_lowlevel_audio_features(
 				args,
 				movie_split,
+				device,
+				save_dir
+			)
+
+		elif args.modality == 'audio_emo':
+			extract_emotion_audio_features(
+				args,
+				movie_split,
+				processor,
+				model,
 				device,
 				save_dir
 			)
