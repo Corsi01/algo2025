@@ -9,82 +9,9 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 from nilearn import  datasets
-#from data_utils import atlas_schaefer
-#from MultiSubjectModel_utils import MultiSubjectMLP
+from data_utils import atlas_schaefer
+from MultiSubjectModel_utils import MultiSubjectMLP
 
-
-def atlas_schaefer():
-    
-    atlas = datasets.fetch_atlas_schaefer_2018(n_rois=1000, yeo_networks=7)
-    labels = atlas['labels']
-
-    labels_str = [label.decode('utf-8') for label in labels]
-    networks = [label.split('_')[2] for label in labels_str]
-    hemispheres = [label.split('_')[1] for label in labels_str]
-
-
-    parcel_info = {
-        'parcel_id': list(range(0, 1000)),
-        'label': labels_str,
-        'network_yeo7': networks,
-        'hemisphere': hemispheres
-    }
-
-    df = pd.DataFrame(parcel_info)
-    
-    return df
-
-class MultiSubjectMLP(nn.Module):
-    def __init__(self, input_dim=3750, embedding_dim=64, hidden_dim=800, output_dim=1000, dropout_rate=0.5, num_subjects=4):
-        super().__init__()
-        
-        # Subject embedding trainabile (da one-hot a embedding denso)
-        self.subject_embedding = nn.Linear(num_subjects, embedding_dim, bias=False)
-        
-        # Backbone condiviso
-        self.backbone = nn.Sequential(
-            nn.Linear(input_dim + embedding_dim, hidden_dim),
-            #nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate)
-        )
-        
-        # Heads separati per ogni soggetto
-        self.heads = nn.ModuleList([
-            nn.Linear(hidden_dim, output_dim) for _ in range(num_subjects)
-        ])
-        
-        # Mapping da subject index a one-hot per prediction
-        self.num_subjects = num_subjects
-    
-    def forward(self, x, subject_onehot):
-        # Da one-hot a embedding denso (trainabile)
-        subj_emb = self.subject_embedding(subject_onehot)  # [batch_size, 4] → [batch_size, 64]
-        
-        # Concatena features + embedding
-        x_augmented = torch.cat([x, subj_emb], dim=1)  # [batch_size, 3814]
-        
-        # Backbone condiviso
-        backbone_features = self.backbone(x_augmented)  # [batch_size, 800]
-        
-        return backbone_features
-    
-    def predict_subject(self, x, subject_id):
-        """Predizione per un soggetto specifico"""
-        batch_size = x.size(0)
-        device = x.device
-        
-        # Crea one-hot per il soggetto specifico
-        subject_onehot = torch.zeros(batch_size, self.num_subjects, device=device)
-        subject_onehot[:, subject_id] = 1.0
-        
-        # Backbone features
-        backbone_features = self.forward(x, subject_onehot)
-        
-        # Apply head specifico
-        output = self.heads[subject_id](backbone_features)
-        
-        return output
 
 def load_optimization_results(filename='optimize_models/optimization_results.json'):
     """Load optimization results if available"""
