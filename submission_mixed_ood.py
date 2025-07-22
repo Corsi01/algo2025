@@ -1,7 +1,3 @@
-"""
-Dual ensemble submission script for optimized multi-subject fMRI encoding models - OOD movies
-Uses two ensembles: with_text (for all movies including chaplin with dummy) and language_multi (for passepartout)
-"""
 import matplotlib
 matplotlib.use('Agg') 
 
@@ -251,9 +247,9 @@ def align_features_and_fmri_samples_ood_triple(features_ood, root_data_dir, dumm
 
 def prepare_aligned_features_triple(features_ood, root_data_dir, dummy_language):
     """
-    Prepare aligned features for both standard and different configurations using dual ensemble approach
+    Prepare aligned features for both standard and different configurations (different input memory for different networks)
     """
-    print("Aligning features with optimized memory windows (dual ensemble approach)...")
+    print("Aligning features with optimized memory windows ...")
     
     # Standard features (for visual, dorsattn, multi networks)
     print("  1. Standard features (visual memory: hrf_delay=11, stimulus_window=5)")
@@ -301,9 +297,7 @@ def generate_predictions_triple(ensemble_with_text, ensemble_language_multi, ens
        
         # Extract subject number from key (e.g., 'sub-01' -> 1)
         subject_number = int(sub.split('-')[1])
-       
         print(f"\nProcessing {sub} (subject {subject_number})")
-       
         # Get corresponding different features for this subject
         features_different = aligned_features_different[sub]
        
@@ -349,53 +343,29 @@ def generate_predictions_triple(ensemble_with_text, ensemble_language_multi, ens
             submission_predictions[sub][epi] = fmri_pred
             
             # Log prediction shape for verification
-            print(f"    Prediction shape: {fmri_pred.shape}")
-   
-    # Print summary of ensemble usage
-    print(f"\n{'='*60}")
-    print("ENSEMBLE USAGE SUMMARY:")
-    print(f"{'='*60}")
-    
-    for sub_num in [1, 2, 3, 4, 5]:
-        print(f"\nSubject {sub_num}:")
-        
-        if sub_num in videomae_targets:
-            for epi in videomae_targets[sub_num]:
-                print(f"  {epi}: VideoMAE ensemble")
-        
-        # Passepartout episodes (all subjects)
-        print(f"  passepartout1: Multilingual ensemble")
-        print(f"  passepartout2: Multilingual ensemble")
-        
-        # Other episodes
-        other_episodes = ['chaplin1', 'chaplin2', 'planetearth1', 'planetearth2']
-        for epi in other_episodes:
-            if sub_num not in videomae_targets or epi not in videomae_targets[sub_num]:
-                print(f"  {epi}: Standard text ensemble")
+            print(f"Prediction shape: {fmri_pred.shape}")
    
     return submission_predictions
 
 
 def main():
-    """
-    Main function to generate optimized submission with dual ensemble approach
-    """
+    
     root_data_dir = 'data'
     
     print("="*60)
-    print("OPTIMIZED MULTI-SUBJECT OOD SUBMISSION WITH DUAL ENSEMBLE")
+    print("OPTIMIZED MULTI-SUBJECT OOD SUBMISSION")
     print("="*60)
     
     # 1. Load optimized model configurations for BOTH ensembles
     print("\n1. Loading optimized model configurations...")
     print("  a) Loading models WITH text features:")
-    model_configs_with_text, parcel_lists = get_optimized_model_configs('optimize_models/')
+    model_configs_with_text, parcel_lists = get_optimized_model_configs('models/best_model/')
     
     print("  b) Loading models WITH MULTILINGUAL text features:")
-    model_configs_language_multi, _ = get_optimized_model_configs('optimize_models_language_multi/')
+    model_configs_language_multi, _ = get_optimized_model_configs('models/model_multilingual/')
     
     print("  c) Loading models WITH text features + VIDEOMAE:")
-    model_configs_with_text_videomae, parcel_lists = get_optimized_model_configs('optimize_models_videomae2/')
+    model_configs_with_text_videomae, parcel_lists = get_optimized_model_configs('models/model_videomae2/')
     
     # 2. Load stimulus features
     print("\n2. Loading stimulus features for OOD movies...")
@@ -443,7 +413,7 @@ def main():
     )
     
     # 6. Generate predictions using appropriate ensemble for each movie
-    print("\n6. Generating predictions with dual ensemble approach...")
+    print("\n6. Generating predictions with triple ensemble approach...")
     submission_predictions = generate_predictions_triple(
         ensemble_with_text, ensemble_language_multi, ensemble_with_text_videomae, aligned_features_standard, aligned_features_different
     )
@@ -452,16 +422,16 @@ def main():
     print("\n7. Saving submission files...")
     import zipfile
     
-    save_dir = 'data/submission/ood/multi_subject/mixed/'
+    save_dir = 'data/submission/oodmulti_subject/mixed/'
     os.makedirs(save_dir, exist_ok=True)
     
     # Save the predicted fMRI dictionary as a .npy file
-    output_file = os.path.join(save_dir, "fmri_predictions_ood_triple.npy")
+    output_file = os.path.join(save_dir, "fmri_predictions_ood.npy")
     np.save(output_file, submission_predictions)
     print(f"Predictions saved to: {output_file}")
     
     # Zip the saved file for submission
-    zip_file = os.path.join(save_dir, "fmri_predictions_ood_triple.zip")
+    zip_file = os.path.join(save_dir, "fmri_predictions_ood.zip")
     with zipfile.ZipFile(zip_file, 'w') as zipf:
         zipf.write(output_file, os.path.basename(output_file))
     print(f"Submission file zipped as: {zip_file}")
