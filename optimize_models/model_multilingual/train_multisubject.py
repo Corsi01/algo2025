@@ -1,12 +1,7 @@
-"""
-Main script for multi-subject fMRI encoding training with hyperparameter optimization
-FIXED: Added direct full training without intermediate steps
-"""
-
 import os
 import torch
 import numpy as np
-from utilities import (
+from ...utils.train_utils import (
     align_features_and_fmri_samples_extended,
     train_multitask_model,
     train_final_model_on_all_data,
@@ -15,13 +10,13 @@ from utilities import (
     make_prediction,
     get_network_parcels
 )
-from optimization_utils import (
+from ...utils.optimization_utils import (
     optimize_network_hyperparams,
     save_optimization_results,
     load_optimization_results,
     show_optimization_results
 )
-from ..data_utils import load_fmri, atlas_schaefer, compute_encoding_accuracy, set_seed
+from ...utils.data_utils import load_fmri, atlas_schaefer, compute_encoding_accuracy, set_seed
 
 root_data_dir = '../../data'
 modality = 'all'
@@ -120,11 +115,7 @@ def setup_model_configurations(parcel_lists):
 
 
 class MultiSubjectTrainer:
-    """
-    Classe principale per il training multi-subject con ottimizzazione iperparametri
-    """
-    
-    def __init__(self, root_data_dir='../data', random_seed=777):
+   def __init__(self, root_data_dir='../data', random_seed=777):
         """
         Args:
             root_data_dir: directory containing data
@@ -414,16 +405,7 @@ class MultiSubjectTrainer:
         return full_models
     
     def optimize_network(self, network_name, n_trials=50):
-        """
-        Ottimizza iperparametri per un network specifico
         
-        Args:
-            network_name: nome del network
-            n_trials: numero di trial per l'ottimizzazione
-            
-        Returns:
-            dict: risultati ottimizzazione
-        """
         print(f"\n{'='*60}")
         print(f"OPTIMIZING {network_name.upper()} NETWORK")
         print(f"{'='*60}")
@@ -557,9 +539,7 @@ class MultiSubjectTrainer:
         return model, network_data
     
     def train_all_networks(self, use_best_params=False):
-        """
-        Training di tutti i network con opzione best params
-        """
+        
         print("Starting training for all networks...")
         
         models = {}
@@ -804,9 +784,7 @@ class MultiSubjectTrainer:
         return ensemble
     
     def run_complete_pipeline(self, use_best_params=False):
-        """
-        Pipeline completa con possibilità di usare best params
-        """
+        
         print("="*80)
         print("STARTING COMPLETE MULTI-SUBJECT TRAINING PIPELINE")
         print("="*80)
@@ -845,7 +823,7 @@ class MultiSubjectTrainer:
     
     def run_direct_full_training_pipeline(self, use_best_params=False):
         """
-        NEW: Pipeline che addestra direttamente su tutti i dati senza passaggi intermedi
+        fixed
         """
         print("="*80)
         print("STARTING DIRECT FULL TRAINING PIPELINE")
@@ -1081,10 +1059,10 @@ def check_model_files():
     
     print(f"\nExisting models ({len(existing)}):")
     for model in existing:
-        print(f"  ✓ {model}")
+        print(f"{model}")
     
     print(f"\nMissing models ({len(missing)}):")
     for model in missing:
-        print(f"  ✗ {model}")
+        print(f"{model}")
     
     return existing, missing
