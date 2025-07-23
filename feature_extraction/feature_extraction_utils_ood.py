@@ -67,93 +67,7 @@ def list_movie_splits(args, movie):
     ### Output ###
     return movie_splits_list
 
-#####################################################
 
-######### functions to load models ##############
-
-def load_language_model(device):
-    """Load the RoBERTa-base model with proper configuration.
-
-    Parameters
-    ----------
-    device : str
-        Device to load the model on ('cuda' or 'cpu').
-
-    Returns
-    -------
-    model : RobertaModel
-        Configured RoBERTa-base model.
-    tokenizer : RobertaTokenizer  
-        RoBERTa-base tokenizer.
-    """
-    from transformers import RobertaTokenizer, RobertaModel
-
-    tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
-    model = RobertaModel.from_pretrained('roberta-base')
-    model.eval()
-    model = model.to(device)
-
-    # Enable output of hidden states and attentions
-    model.config.output_hidden_states = True
-    model.config.output_attentions = True
-
-    print("RoBERTa-base loaded successfully!")
-    return model, tokenizer
-
-
-def load_language_model_multilingual(device):
-    
-    # Version with multilingual RoBERTa
-    from transformers import XLMRobertaTokenizer, XLMRobertaModel
-    tokenizer = XLMRobertaTokenizer.from_pretrained("xlm-roberta-base")
-    model = XLMRobertaModel.from_pretrained("xlm-roberta-base")
-
-    model.eval()
-    model = model.to(device)
-
-    # Enable output of hidden states and attentions
-    model.config.output_hidden_states = True
-    model.config.output_attentions = True
-
-    print("RoBERTa multilingual loaded successfully!")
-    return model, tokenizer
-
-def load_vinet_model(device):
-    """Load the pre-trained ViNet model.
-    
-    Parameters
-    ----------
-    device : str
-        Device to load the model on ('cuda' or 'cpu').
-    
-    Returns
-    -------
-    model : VideoSaliencyModel
-        Loaded ViNet model.
-    """
-    sys.path.append(os.path.abspath("../ViNET"))
-    from model import VideoSaliencyModel
- 
-    model = VideoSaliencyModel()
-    model.load_state_dict(torch.load("ViNET/ViNet_Hollywood.pt", map_location=device))
-    model.to(device)
-    model.eval()
-
-    return model
-
-def get_audio_model(device):
-    url = 'https://zenodo.org/record/6221127/files/w2v2-L-robust-12.6bc4a7fd-1.1.0.zip'
-    cache_root = audeer.mkdir('cache')
-    model_root = audeer.mkdir('model')
-
-    archive_path = audeer.download_url(url, cache_root, verbose=True)
-    audeer.extract_archive(archive_path, model_root)
-    model = audonnx.load(model_root)
-    return None, model
-
-####################################################
-
-################ LANGUAGE ##########################
 
 def extract_language_features(args, movie, movie_split, model, tokenizer, device, save_dir):
     """Extract and save advanced language features with multiple pooling strategies.
@@ -266,8 +180,6 @@ def extract_language_features(args, movie, movie_split, model, tokenizer, device
     
     print(f"Saved {movie_split} language features with shape {pooled_all.shape}")
     
-
-############################ AUDIO 1 & 2 #########################
 
 def extract_audio_features(args, movie, movie_split, device, save_dir):
     """Extract and save the audio features from the .mkv file of the selected
@@ -475,39 +387,6 @@ def extract_audio_emo_features(args, movie, movie_split, processor, model, devic
     with h5py.File(out_file, flag) as f:
         group = f.create_group(movie_split)
         group.create_dataset('audio', data=audio_logits, dtype=np.float32)
-
-
-#################### VISUAL FEATURES ##################################
-
-
-def frames_transform(args):
-    """Define the transforms for ViNet model input frames.
-    
-    Parameters
-    ----------
-    args : Namespace
-        Input arguments.
-    
-    Returns
-    -------
-    transform : torchvision.transforms.Compose
-        Transform pipeline for video frames.
-    transform2 : torchvision.transforms.Compose
-        Transform pipeline for normalization only.
-    """
-    transform = T.Compose([
-        T.Resize((224, 384)),
-        T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225])
-    ])
-
-    transform2 = T.Compose([  
-        T.Normalize(mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225])
-    ])
-
-    return transform, transform2
 
 
 def extract_visual_features(args, movie, movie_split, model, 
