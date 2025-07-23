@@ -77,19 +77,15 @@ def define_frames_transform(args):
 	crop_size = 224
 	num_frames = 16
 
-	# Note that this transform is specific to the slow_R50 model.
-	transform = Compose(
-		[
-			UniformTemporalSubsample(num_frames),
-			Lambda(lambda x: x/255.0),
-			Normalize(mean, std),
-			Lambda(lambda x: F.interpolate(x.permute(1,0,2,3),
-										   size=(crop_size, crop_size),
-										   mode='bicubic').permute(1,0,2,3).contiguous()),
-		]
-	)
-
-	### Output ###
+	transform = Compose([
+		UniformTemporalSubsample(num_frames),
+		Lambda(lambda x: x/255.0),
+		Normalize(mean, std),
+		Lambda(lambda x: F.interpolate(x.permute(1,0,2,3),
+						size=(crop_size, crop_size),
+						mode='bicubic').permute(1,0,2,3).contiguous()),
+		])
+	
 	return transform
 
 
@@ -144,6 +140,35 @@ def load_language_model(device):
 
     tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
     model = RobertaModel.from_pretrained('roberta-base')
+    model.eval()
+    model = model.to(device)
+
+    # Enable output of hidden states and attentions
+    model.config.output_hidden_states = True
+    model.config.output_attentions = True
+
+    print("RoBERTa-base loaded successfully!")
+    return model, tokenizer
+
+def load_language_model_multilingual(device):
+    """Load the RoBERTa-base model with proper configuration.
+
+    Parameters
+    ----------
+    device : str
+        Device to load the model on ('cuda' or 'cpu').
+
+    Returns
+    -------
+    model : RobertaModel
+        Configured RoBERTa-base model.
+    tokenizer : RobertaTokenizer  
+        RoBERTa-base tokenizer.
+    """
+    from transformers import XLMRobertaTokenizer, XLMRobertaModel
+    tokenizer = XLMRobertaTokenizer.from_pretrained("xlm-roberta-base")
+    model = XLMRobertaModel.from_pretrained("xlm-roberta-base")
+
     model.eval()
     model = model.to(device)
 
