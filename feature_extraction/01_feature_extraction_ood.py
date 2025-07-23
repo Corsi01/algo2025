@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from feature_extraction_utils_new import frames_transform, define_frames_transform
 from feature_extraction_utils_new import load_vinet_model, load_language_model, load_language_model_multilingual, get_emotion_audio_model, get_vision_model
-from feature_extraction_utils_ood import  extract_language_features, extract_visual_features
+from feature_extraction_utils_ood import  extract_language_features, extract_visual_features, extract_viusal_features_videomae
 from feature_extraction_utils_ood import extract_audio_features, extract_audio_emo_features, extract_lowlevel_audio_features
 
 
@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser()
  #   'passepartout', 'planetearth', 'pulpfiction', 'wot'])
 parser.add_argument('--movies', type=list, default=['pulpfiction'])
 parser.add_argument('--modality', type=str, default='language',
-                    choices=['visual', 'language', 'language_multilingual','audio', 'audio_low', 'audio_emo'],
+                    choices=['visual', 'visual_videomae','language', 'language_multilingual','audio', 'audio_low', 'audio_emo'],
                     help='Type of features to extract')
 parser.add_argument('--tr', type=float, default=1.49,
                     help='fMRI repetition time')
@@ -59,6 +59,12 @@ if args.modality == 'visual':
     model = load_vinet_model(device)
     print('ViNet model loaded successfully')
 
+elif args.modality == 'visual_videomae':
+	# Load the video transform and model
+	transform = define_frames_transform(args)
+	feature_extractor, model_layer = get_vision_model(args, device)
+	print('VideoMAE2 model loaded successfully')
+
 elif args.modality == 'language':
     # Load the BERT model and tokenizer
     model, tokenizer = load_language_model(device)
@@ -94,6 +100,18 @@ for movie in tqdm(args.movies):
                     save_dir
                 )
 
+            elif args.modality == 'visual_videomae':
+                  extract_visual_features_videomae(
+                   args,
+                   movie,
+                   movie_split,
+                   feature_extractor,
+                   model_layer,
+                   transform,
+                   device, 
+                   save_dir
+                  ) 
+             
             elif args.modality == 'language' or args.modality == 'language_multilingual':
                 if movie != 'chaplin':
                     extract_language_features(
