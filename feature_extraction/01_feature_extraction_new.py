@@ -4,7 +4,7 @@ import torch
 from tqdm import tqdm
 
 from feature_extraction_utils_new import frames_transform, define_frames_transform, list_movie_splits
-from feature_extraction_utils_new import load_vinet_model, load_language_model, load_language_model_multilingual, get_emotion_audio_model. get_vision_model
+from feature_extraction_utils_new import load_vinet_model, load_language_model, load_language_model_multilingual, get_emotion_audio_model, get_vision_model
 from feature_extraction_utils_new import extract_visual_features, extract_visual_features_videomae
 from feature_extraction_utils_new import extract_language_features
 from feature_extraction_utils_new import extract_lowlevel_audio_features, extract_audio_features, extract_emoton_audio_features
