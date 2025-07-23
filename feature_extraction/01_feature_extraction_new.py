@@ -4,7 +4,7 @@ import torch
 from tqdm import tqdm
 
 from feature_extraction_utils_new import frames_transform, define_frames_transform, list_movie_splits
-from feature_extraction_utils_new import load_vinet_model, load_language_model, get_emotion_audio_model. get_vision_model
+from feature_extraction_utils_new import load_vinet_model, load_language_model, load_language_model_multilingual, get_emotion_audio_model. get_vision_model
 from feature_extraction_utils_new import extract_visual_features, extract_visual_features_videomae
 from feature_extraction_utils_new import extract_language_features
 from feature_extraction_utils_new import extract_lowlevel_audio_features, extract_audio_features, extract_emoton_audio_features
@@ -17,7 +17,7 @@ parser.add_argument('--movie_type', type=str, default='movie10',
 parser.add_argument('--stimulus_type', type=str, default='wolf',
 					help='Specific stimulus (season for friends, movie for movie10)')
 parser.add_argument('--modality', type=str, default='language',
-					choices=['visual', 'visual_videomae','language', 'audio', 'audio_low', 'audio_emo'],
+					choices=['visual', 'visual_videomae','language', 'language_multilingual','audio', 'audio_low', 'audio_emo'],
 					help='Type of features to extract')
 parser.add_argument('--tr', type=float, default=1.49,
 					help='fMRI repetition time')
@@ -71,6 +71,10 @@ elif args.modality == 'language':
 	# Load the BERT model and tokenizer
 	model, tokenizer = load_language_model(device)
 
+elif args.modality == 'language_multilingual':
+	# Load the BERT model and tokenizer
+	model, tokenizer = load_language_model_multilingual(device)
+
 elif args.modality == 'audio_emo':
 	processor, model = get_emotion_audio_model(device)
 
@@ -110,7 +114,7 @@ for movie_split in tqdm(movie_splits_list, desc="Processing movie splits"):
 				save_dir
 			)
 
-		elif args.modality == 'language':
+		elif args.modality == 'language' or args.modality == 'language_multilingual':
 			extract_language_features(
 				args,
 				movie_split,
