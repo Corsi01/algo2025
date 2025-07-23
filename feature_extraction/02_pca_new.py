@@ -1,18 +1,3 @@
-"""Downsample the Friends ad Movie10 stimuli features using PCA.
-
-Parameters
-----------
-modality : str
-    Whether to use 'visual', 'audio' or 'language' features.
-train : int
-    If 1, perform PCA on the train stimuli features.
-test : int
-    If 1, perform PCA on the test stimuli features.
-project_dir : str
-    Directory of the Algonauts 2025 folder.
-
-"""
-
 import argparse
 import os
 import numpy as np
@@ -38,8 +23,6 @@ for key, val in vars(args).items():
 seed = 20200220
 np.random.seed(seed)
 random.seed(seed)
-
-
 # =============================================================================
 # Output directory
 # =============================================================================
@@ -48,8 +31,6 @@ save_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
 
 if os.path.isdir(save_dir) == False:
     os.makedirs(save_dir)
-
-
 # =============================================================================
 # Downsample the train stimulus features (Friends s1-s6 + Movie10)
 # =============================================================================
