@@ -100,6 +100,24 @@ def load_language_model(device):
     print("RoBERTa-base loaded successfully!")
     return model, tokenizer
 
+
+def load_language_model_multilingual(device):
+    
+    # Version with multilingual RoBERTa
+    from transformers import XLMRobertaTokenizer, XLMRobertaModel
+    tokenizer = XLMRobertaTokenizer.from_pretrained("xlm-roberta-base")
+    model = XLMRobertaModel.from_pretrained("xlm-roberta-base")
+
+    model.eval()
+    model = model.to(device)
+
+    # Enable output of hidden states and attentions
+    model.config.output_hidden_states = True
+    model.config.output_attentions = True
+
+    print("RoBERTa multilingual loaded successfully!")
+    return model, tokenizer
+
 def load_vinet_model(device):
     """Load the pre-trained ViNet model.
     
