@@ -13,7 +13,7 @@ from data_utils import atlas_schaefer
 from multisubject_utils import MultiSubjectMLP
 
 
-def load_optimization_results(filename='optimize_models/optimization_results.json'):
+def load_optimization_results(filename='../optimize_models/model_best/optimization_results.json'):
     """Load optimization results if available"""
     if os.path.exists(filename):
         with open(filename, 'r') as f:
@@ -21,7 +21,7 @@ def load_optimization_results(filename='optimize_models/optimization_results.jso
     return {}
 
 
-def get_optimized_model_configs(models_dir='optimize_models/'):
+def get_optimized_model_configs(models_dir='../optimize_models/model_best/'):
     """
     Get model configurations using optimized hyperparameters if available,
     otherwise use default configurations
@@ -247,19 +247,11 @@ class EnsembleNetworkModel(nn.Module):
         return full_prediction
 
 
-def create_ensemble_from_optimized_models(models_dir='optimize_models/', 
+def create_ensemble_from_optimized_models(models_dir='../optimize_models/model_best/', 
                                         model_configs=None, 
                                         parcel_lists=None,
                                         total_parcels=1000):
-    """
-    Create ensemble from optimized MultiSubjectMLP saved models
     
-    Args:
-        models_dir: Directory containing the models (e.g., 'optimize_models/' or 'optimize_models_no_text/')
-        model_configs: Model configurations from get_optimized_model_configs()
-        parcel_lists: Parcel lists from get_optimized_model_configs()
-        total_parcels: Total number of parcels
-    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Model paths
