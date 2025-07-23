@@ -3,10 +3,9 @@ import os
 import torch
 from tqdm import tqdm
 
-from feature_extraction_utils_ood import list_movie_splits
-from feature_extraction_utils_ood import load_vinet_model, load_language_model, get_audio_model
-from feature_extraction_utils_ood import frames_transform, extract_language_features
-from feature_extraction_utils_ood import frames_transform, extract_visual_features
+from feature_extraction_utils_new import frames_transform, define_frames_transform
+from feature_extraction_utils_new import load_vinet_model, load_language_model, load_language_model_multilingual, get_emotion_audio_model, get_vision_model
+from feature_extraction_utils_ood import  extract_language_features, extract_visual_features
 from feature_extraction_utils_ood import extract_audio_features, extract_audio_emo_features, extract_lowlevel_audio_features
 
 
@@ -15,7 +14,7 @@ parser = argparse.ArgumentParser()
  #   'passepartout', 'planetearth', 'pulpfiction', 'wot'])
 parser.add_argument('--movies', type=list, default=['pulpfiction'])
 parser.add_argument('--modality', type=str, default='language',
-                    choices=['visual', 'language', 'audio', 'audio_low', 'audio_emo'],
+                    choices=['visual', 'language', 'language_multilingual','audio', 'audio_low', 'audio_emo'],
                     help='Type of features to extract')
 parser.add_argument('--tr', type=float, default=1.49,
                     help='fMRI repetition time')
@@ -63,13 +62,15 @@ if args.modality == 'visual':
 elif args.modality == 'language':
     # Load the BERT model and tokenizer
     model, tokenizer = load_language_model(device)
+
+elif args.modality == 'language_multilingual':
+    # Load the BERT model and tokenizer
+    model, tokenizer = load_language_model_multilingual(device)
  
 elif args.modality == 'audio_emo':
     # Load Wav2Vec2 model
     processor, model = get_audio_model(device)
     
-
-
 # =============================================================================
 # Extract features for each movie split
 # =============================================================================
@@ -93,7 +94,7 @@ for movie in tqdm(args.movies):
                     save_dir
                 )
 
-            elif args.modality == 'language':
+            elif args.modality == 'language' or args.modality == 'language_multilingual':
                 if movie != 'chaplin':
                     extract_language_features(
                         args,
