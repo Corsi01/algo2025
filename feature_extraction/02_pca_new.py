@@ -98,7 +98,7 @@ if args.train == 1:
                     elif args.modality == 'language_multilingual':
                         features = np.asarray(data[movie]['language'])
                     elif args.modality == 'visual_videomae':
-                        raw = np.asarray(data[movie]['visual']
+                        raw = np.asarray(data[movie]['visual'])
                         reshaped = raw.reshape(-1, 2048, 1408)  # (n_samples, 2048, 1408)
                         # Pooling
                         avg_pool = reshaped.mean(axis=1)                           
@@ -113,7 +113,7 @@ if args.train == 1:
                         features = np.append(
                             features, np.asarray(data[movie]['language']), 0)
                     elif args.modality == 'visual_videomae':
-                        raw = np.asarray(data[movie]['visual']
+                        raw = np.asarray(data[movie]['visual'])
                         reshaped = raw.reshape(-1, 2048, 1408)  # (n_samples, 2048, 1408)
                         # Pooling
                         avg_pool = reshaped.mean(axis=1)                           
@@ -132,9 +132,30 @@ if args.train == 1:
             del data
 
     else: ### audio_emo
+        # Load OpenSMILE features (features1)
+        movie_splits = []
+        chunks_per_movie = []
+        for i, stim_dir in tqdm(enumerate(stimuli_list)):
+            data = h5py.File(stim_dir, 'r')
+            for m, movie in enumerate(data.keys()):
+                if i == 0 and m == 0: # first episode of first season
+                    features1 = np.asarray(data[movie]['audio_opensmile'])
+                else:
+                    features1 = np.append(features1, np.asarray(data[movie]['audio_opensmile']), 0)
+                
+                chunks_per_movie.append(len(data[movie]['audio_opensmile']))
+                movie_splits.append(movie)
+            del data
         
-################## insert here #########################
-    
+        # Load Emotion features (features2)
+        for i, stim_dir in tqdm(enumerate(stimuli_list2)):
+            data = h5py.File(stim_dir, 'r')
+            for m, movie in enumerate(data.keys()):
+                if i == 0 and m == 0: # first episode of first season
+                    features2 = np.asarray(data[movie]['audio'])
+                else:
+                    features2 = np.append(features2, np.asarray(data[movie]['audio']), 0)
+            del data
     
     if args.modality == 'visual':
         features = features.reshape(features.shape[0], -1)
@@ -215,7 +236,7 @@ if args.test == 1:
             data_dir1 = os.path.join(base_dir, 'friends', 'audio_low',
                 'friends_s'+str(season)+'_features_audio_low_level.h5')
             data_dir2 = os.path.join(base_dir, 'friends', args.modality,
-                'friends_s'+str(season)+'emo_features_audio.h5')
+                'friends_s'+str(season)+'_emo_features_audio.h5')
     
         if args.modality != 'audio_emo':
             data = h5py.File(data_dir, 'r')
@@ -227,9 +248,9 @@ if args.test == 1:
                     elif args.modality == 'language_multilingual':
                         features = np.asarray(data[movie]['language'])
                     elif args.modality == 'visual_videomae':
-                        raw = np.asarray(data[movie]['visual']
+                        raw = np.asarray(data[movie]['visual'])
                         reshaped = raw.reshape(-1, 2048, 1408)  # (n_samples, 2048, 1408)
-                    # Pooling
+                        # Pooling
                         avg_pool = reshaped.mean(axis=1)                           
                         max_pool = reshaped.max(axis=1)                            
                         pooled = np.concatenate([avg_pool, max_pool], axis=1)
@@ -240,7 +261,7 @@ if args.test == 1:
                     elif args.modality == 'language_multilingual':
                         features = np.append(features, np.asarray(data[movie]['language']), 0)
                     elif args.modality == 'visual_videomae':
-                        raw = np.asarray(data[movie]['visual']
+                        raw = np.asarray(data[movie]['visual'])
                         reshaped = raw.reshape(-1, 2048, 1408)  # (n_samples, 2048, 1408)
                         # Pooling
                         avg_pool = reshaped.mean(axis=1)                           
@@ -259,7 +280,26 @@ if args.test == 1:
             del data
 
         else: #### audio emo
-    ###############i nsert code here #####################
+            # Load OpenSMILE features (features1)
+            data1 = h5py.File(data_dir1, 'r')
+            for m, movie in enumerate(data1.keys()):
+                if season == test_seasons[0] and m == 0: # first episode of first season
+                    features1 = np.asarray(data1[movie]['audio_opensmile'])
+                else:
+                    features1 = np.append(features1, np.asarray(data1[movie]['audio_opensmile']), 0)
+                
+                chunks_per_movie.append(len(data1[movie]['audio_opensmile']))
+                movie_splits.append(movie)
+            del data1
+            
+            # Load Emotion features (features2)
+            data2 = h5py.File(data_dir2, 'r')
+            for m, movie in enumerate(data2.keys()):
+                if season == test_seasons[0] and m == 0: # first episode of first season
+                    features2 = np.asarray(data2[movie]['audio'])
+                else:
+                    features2 = np.append(features2, np.asarray(data2[movie]['audio']), 0)
+            del data2
 
     if args.modality == 'visual':
         features = features.reshape(features.shape[0], -1)
