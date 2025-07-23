@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modality', type=str, default='language',
-                    choices=['visual', 'visual_videomae2','language', 'audio', 'audio_low', 'audio_emo', 'language_multi', 'multimodal'],
+                    choices=['visual', 'visual_videomae2', 'language', 'audio', 'audio_emo', 'language_multi'],
                     help='Type of features to extract')
 parser.add_argument('--project_dir', default='data/', type=str)
 args = parser.parse_args()
