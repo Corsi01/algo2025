@@ -5,7 +5,7 @@
 pip install optuna>=3.0.0
 ```
 
-## Optimization
+## Optimization (Inside each model directory)
 
 ### All networks
 ```bash
