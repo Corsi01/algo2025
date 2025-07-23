@@ -4,7 +4,7 @@ matplotlib.use('Agg')
 import os
 import numpy as np
 from tqdm import tqdm
-from submission_utils_ood import (
+from utils.submission_utils_ood import (
     get_optimized_model_configs,
     create_ensemble_from_optimized_models,
     make_prediction
