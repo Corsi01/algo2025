@@ -8,7 +8,7 @@ Placeholder folder - shows where data should be located
 - `01_feature_extraction_ood.py` - out-of-distribution features  
 - `02_pca_new.py` - PCA transformation
 - `02_pca_ood.py` - PCA for OOD data
-- `feature_extraction_utils_new.py` - utility functions (new data)
+- `feature_extraction_utils_new.py` - utility functions (ID data)
 - `feature_extraction_utils_ood.py` - utility functions (OOD data)
 
 ## optimize_models/
