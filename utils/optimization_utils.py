@@ -13,8 +13,8 @@ import json
 import os
 from datetime import datetime
 import pandas as pd
-from utilities import train_multitask_model 
-from ..utils.MultiSubjectModel_utils import MultiSubjectMLP, MultiSubjectDataset
+from train_utils import train_multitask_model 
+from multisubject_utils import MultiSubjectMLP, MultiSubjectDataset
 import optuna
 from optuna.samplers import TPESampler
 from optuna.storages import RDBStorage
