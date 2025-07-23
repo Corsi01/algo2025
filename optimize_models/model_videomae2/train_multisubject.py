@@ -1,12 +1,7 @@
-"""
-Main script for multi-subject fMRI encoding training with hyperparameter optimization
-FIXED: Added direct full training without intermediate steps
-"""
-
 import os
 import torch
 import numpy as np
-from ..utilities import (
+from ...utils.train_utils import (
     align_features_and_fmri_samples_extended,
     train_multitask_model,
     train_final_model_on_all_data,
@@ -16,14 +11,14 @@ from ..utilities import (
     get_network_parcels,
     set_seed
 )
-from ..optimization_utils import (
+from ...utils.optimization_utils import (
     optimize_network_hyperparams,
     save_optimization_results,
     load_optimization_results,
     show_optimization_results
 )
 
-from data_utils import load_fmri, atlas_schaefer, compute_encoding_accuracy, set_seed
+from ...utils.data_utils import load_fmri, atlas_schaefer, compute_encoding_accuracy, set_seed
 
 root_data_dir = '../../data'
 modality = 'all'
@@ -417,16 +412,7 @@ class MultiSubjectTrainer:
         return full_models
     
     def optimize_network(self, network_name, n_trials=50):
-        """
-        Ottimizza iperparametri per un network specifico
         
-        Args:
-            network_name: nome del network
-            n_trials: numero di trial per l'ottimizzazione
-            
-        Returns:
-            dict: risultati ottimizzazione
-        """
         print(f"\n{'='*60}")
         print(f"OPTIMIZING {network_name.upper()} NETWORK")
         print(f"{'='*60}")
@@ -448,9 +434,7 @@ class MultiSubjectTrainer:
         return results
     
     def optimize_all_networks(self, n_trials=50):
-        """
-        Ottimizza tutti i 4 network
-        """
+        
         print("="*80)
         print("OPTIMIZING ALL NETWORKS")
         print("="*80)
@@ -469,9 +453,7 @@ class MultiSubjectTrainer:
         return all_results
     
     def train_network_model(self, network_name, use_best_params=False):
-        """
-        Train network model con possibilità di usare best params da ottimizzazione
-        """
+       
         print(f"\n{'='*60}")
         print(f"TRAINING {network_name.upper()} NETWORK MODEL")
         print(f"{'='*60}")
@@ -560,9 +542,7 @@ class MultiSubjectTrainer:
         return model, network_data
     
     def train_all_networks(self, use_best_params=False):
-        """
-        Training di tutti i network con opzione best params
-        """
+        
         print("Starting training for all networks...")
         
         models = {}
