@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from nilearn import  datasets
 from data_utils import atlas_schaefer
-from MultiSubjectModel_utils import MultiSubjectMLP
+from multisubject_utils import MultiSubjectMLP
 
 
 def load_optimization_results(filename='optimize_models/optimization_results.json'):
