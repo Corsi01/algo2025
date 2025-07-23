@@ -1,14 +1,3 @@
-"""Downsample the OOD movies stimulus features using PCA.
-
-Parameters
-----------
-modality : str
-    Whether to use 'visual', 'audio' or 'language' features.
-project_dir : str
-    Directory of the Algonauts 2025 folder.
-
-"""
-
 import argparse
 import os
 import numpy as np
@@ -45,7 +34,6 @@ save_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
 if os.path.isdir(save_dir) == False:
     os.makedirs(save_dir)
 
-
 # =============================================================================
 # OOD stimulus features
 # =============================================================================
@@ -63,7 +51,6 @@ for movie in tqdm(movies):
     
     if args.modality in ['language', 'audio', 'visual']:
     
-        ############################################################################
         data_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
             'raw', 'ood', args.modality, 'ood_'+movie+'_features_'+args.modality+
             '.h5')
@@ -81,12 +68,11 @@ for movie in tqdm(movies):
     
     if args.modality == 'language_multi':
         
-        ############################################################################
         data_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
             'raw', 'ood', args.modality, 'ood_'+movie+'_features_language.h5')
         data = h5py.File(data_dir, 'r')
         for e, episode in enumerate(data.keys()):
-            if movie == movies[0] and e == 0: # if first episode of first movie
+            if movie == movies[0] and e == 0:
                 features = np.asarray(data[episode]['language'])
             else:
                 features = np.append(
@@ -94,39 +80,11 @@ for movie in tqdm(movies):
             
             chunks_per_episode.append(len(data[episode]['language']))
             episode_names.append(episode)
-      
-        #features = features.reshape(features.shape[0], -1)
         ###########################################################################
         
-    if args.modality == 'multimodal':
-    ###########################################################################
-        data_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
-            'raw', 'ood', args.modality, 'ood_'+movie+'_features_joint.h5')
-        data = h5py.File(data_dir, 'r')
-        for e, episode in enumerate(data.keys()):
-            if movie == movies[0] and e == 0: # first episode of first movie
-                features = np.asarray(data[episode]['joint'])
-            else:
-                features = np.append(
-                    features, np.asarray(data[episode]['joint']), 0)
-        
-            chunks_per_episode.append(len(data[episode]['joint']))
-            episode_names.append(episode)
-    
-        print(f"Original features shape for {movie}: {features.shape}")
-    
-    
-        if movie == 'chaplin':
-            n_samples, current_dim = features.shape  # Dovrebbe essere (n_samples, 2048)
-            zeros_to_add = np.zeros((n_samples, 1024))  # (n_samples, 1024)
-            features = np.concatenate([features, zeros_to_add], axis=1)  # (n_samples, 3072)
-            print(f" Chaplin: added 1024 zeros. Shape: {features.shape[1]//1024}x1024 = {features.shape}")
-        else:
-            print(f" {movie}: keeping original shape {features.shape}")
     
     if args.modality == 'visual_videomae2':
         
-        ############################################################################
         data_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
             'raw', 'ood', args.modality, 'ood_'+movie+'_features_visual.h5')
         data = h5py.File(data_dir, 'r')
@@ -147,18 +105,15 @@ for movie in tqdm(movies):
             
             chunks_per_episode.append(len(pooled))
             episode_names.append(episode)
-      
-        #features = features.reshape(features.shape[0], -1)
         ###########################################################################
     
     if args.modality == 'audio_emo':
-        
-        ############################################################################
+    
         data_dir = os.path.join(args.project_dir, 'results', 'stimulus_features',
             'raw', 'ood', 'audio_low', 'ood_'+movie+'_features_audio_low_level.h5')
         data = h5py.File(data_dir, 'r')
         for e, episode in enumerate(data.keys()):
-            if movie == movies[0] and e == 0: # if first episode of first movie
+            if movie == movies[0] and e == 0: 
                 features1 = np.asarray(data[episode]['audio_opensmile'])
             else:
                 features1 = np.append(
@@ -173,7 +128,7 @@ for movie in tqdm(movies):
             'raw', 'ood', 'audio_emo', 'ood_'+movie+'_emo_features_audio.h5')
         data = h5py.File(data_dir, 'r')
         for e, episode in enumerate(data.keys()):
-            if movie == movies[0] and e == 0: # if first episode of first movie
+            if movie == movies[0] and e == 0: 
                 features2 = np.asarray(data[episode]['audio'])
             else:
                 features2 = np.append(
@@ -181,9 +136,6 @@ for movie in tqdm(movies):
             
             
             print(episode, features2.shape)
-      
-        #features2 = features2.squeeze(1)
-        #features = np.concatenate([features1, features2], axis=1)
         ###########################################################################
     
     del data
