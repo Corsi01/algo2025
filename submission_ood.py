@@ -359,13 +359,13 @@ def main():
     # 1. Load optimized model configurations for BOTH ensembles
     print("\n1. Loading optimized model configurations...")
     print("  a) Loading models WITH text features:")
-    model_configs_with_text, parcel_lists = get_optimized_model_configs('models/best_model/')
+    model_configs_with_text, parcel_lists = get_optimized_model_configs('optimize_models/model_best/')
     
     print("  b) Loading models WITH MULTILINGUAL text features:")
-    model_configs_language_multi, _ = get_optimized_model_configs('models/model_multilingual/')
+    model_configs_language_multi, _ = get_optimized_model_configs('optimize_models/model_multilingual/')
     
     print("  c) Loading models WITH text features + VIDEOMAE:")
-    model_configs_with_text_videomae, parcel_lists = get_optimized_model_configs('models/model_videomae2/')
+    model_configs_with_text_videomae, parcel_lists = get_optimized_model_configs('optimize_models/model_videomae2/')
     
     # 2. Load stimulus features
     print("\n2. Loading stimulus features for OOD movies...")
@@ -392,14 +392,14 @@ def main():
     print("\n5. Creating ensemble models...")
     print("  a) Creating ensemble WITH text features:")
     ensemble_with_text = create_ensemble_from_optimized_models(
-        models_dir='optimize_models/',
+        models_dir='optimize_models/model_best/',
         model_configs=model_configs_with_text,
         parcel_lists=parcel_lists
     )
     
     print("  b) Creating ensemble WITH MULTILINGUAL text features:")
     ensemble_language_multi = create_ensemble_from_optimized_models(
-        models_dir='optimize_models_language_multi/',
+        models_dir='optimize_models/model_multilingual',
         model_configs=model_configs_language_multi,
         parcel_lists=parcel_lists
     )
@@ -407,7 +407,7 @@ def main():
     print("\n5. Creating ensemble models...")
     print("  c) Creating ensemble WITH text features + VIDEOMAE:")
     ensemble_with_text_videomae = create_ensemble_from_optimized_models(
-        models_dir='optimize_models_videomae2/',
+        models_dir='optimize_models/model_videomae2/',
         model_configs=model_configs_with_text_videomae,
         parcel_lists=parcel_lists
     )
@@ -422,7 +422,7 @@ def main():
     print("\n7. Saving submission files...")
     import zipfile
     
-    save_dir = 'data/submission/oodmulti_subject/mixed/'
+    save_dir = 'data/submission/ood/'
     os.makedirs(save_dir, exist_ok=True)
     
     # Save the predicted fMRI dictionary as a .npy file
