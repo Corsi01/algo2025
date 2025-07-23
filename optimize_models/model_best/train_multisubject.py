@@ -6,7 +6,7 @@ FIXED: Added direct full training without intermediate steps
 import os
 import torch
 import numpy as np
-from ..utilities import (
+from ...utils.train_utils import (
     align_features_and_fmri_samples_extended,
     train_multitask_model,
     train_final_model_on_all_data,
@@ -15,13 +15,13 @@ from ..utilities import (
     make_prediction,
     get_network_parcels
 )
-from ..optimization_utils import (
+from ...utils.optimization_utils import (
     optimize_network_hyperparams,
     save_optimization_results,
     load_optimization_results,
     show_optimization_results
 )
-from data_utils import load_fmri, atlas_schaefer, compute_encoding_accuracy, set_seed
+from ...utils.data_utils import load_fmri, atlas_schaefer, compute_encoding_accuracy, set_seed
 
 
 root_data_dir = '../../data'
