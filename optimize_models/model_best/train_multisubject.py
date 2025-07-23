@@ -456,9 +456,7 @@ class MultiSubjectTrainer:
         return all_results
     
     def train_network_model(self, network_name, use_best_params=False):
-        """
-        Train network model con possibilità di usare best params da ottimizzazione
-        """
+        
         print(f"\n{'='*60}")
         print(f"TRAINING {network_name.upper()} NETWORK MODEL")
         print(f"{'='*60}")
@@ -547,11 +545,8 @@ class MultiSubjectTrainer:
         return model, network_data
     
     def train_all_networks(self, use_best_params=False):
-        """
-        Training di tutti i network con opzione best params
-        """
+       
         print("Starting training for all networks...")
-        
         models = {}
         network_data_all = {}
         
@@ -835,7 +830,7 @@ class MultiSubjectTrainer:
     
     def run_direct_full_training_pipeline(self, use_best_params=False):
         """
-        NEW: Pipeline che addestra direttamente su tutti i dati senza passaggi intermedi
+        NEW: no intermediate steps
         """
         print("="*80)
         print("STARTING DIRECT FULL TRAINING PIPELINE")
