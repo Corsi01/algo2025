@@ -538,3 +538,80 @@ def extract_visual_features(args, movie, movie_split, model,
         group.create_dataset('visual', data=visual_features, dtype=np.float32)
     
     print(f"Saved {movie_split} visual features with shape {visual_features.shape}")
+
+
+
+def extract_visual_features_videomae(args, movie, movie_split, feature_extractor, model_layer,
+	transform, device, save_dir):
+	"""Extract and save the visual features from the .mkv file of the selected
+	movie split for OOD dataset.
+	Parameters
+	----------
+	args : Namespace
+		Input arguments.
+	movie : str
+		Movie name for OOD dataset.
+	movie_split : str
+		Movie split for which the features are extracted and saved.
+	feature_extractor : object
+		Video model feature extractor object.
+	model_layer : str
+		Used model layer.
+	transform : object
+		Video frames transform.
+	device : str
+		Whether to compute on 'cpu' or 'gpu'.
+	save_dir : str
+		Save directory.
+	"""
+	### Temporary directory ###
+	temp_dir = os.path.join(save_dir, 'temp')
+	if os.path.isdir(temp_dir) == False:
+		os.makedirs(temp_dir)
+	
+	### Stimulus path ###
+	stim_path = os.path.join(args.project_dir, 
+		'algonauts_2025.competitors', 'stimuli', 'movies', 'ood',
+		movie, 'ood_'+movie_split+'.mkv')
+	
+	### Divide the movie in chunks of length TR ###
+	clip = VideoFileClip(stim_path)
+	start_times = [x for x in np.arange(0, clip.duration, args.tr)][:-1]
+	### Loop over movie chunks ###
+	visual_features = []
+	for start in start_times:
+		### Save the chunk clips ###
+		clip_chunk = clip.subclip(start, start + args.tr)
+		chunk_path = os.path.join(temp_dir, 'visual_ood.mp4')
+		clip_chunk.write_videofile(chunk_path, verbose=False)
+		### Load the video chunk frames ###
+		video_clip = VideoFileClip(chunk_path)
+		chunk_frames = [chunk_frames for chunk_frames in video_clip.iter_frames()]
+	
+		### Format the frames ###
+		# Pytorch video models usually require shape:
+		# [batch_size, channel, number_of_frame, height, width]
+		frames_array = np.transpose(chunk_frames, [3, 0, 1, 2])
+		### Transform the frames for DNN feature extraction ###
+		inputs = torch.from_numpy(frames_array)
+		inputs = transform(inputs)
+		inputs = inputs.expand(1, -1, -1, -1, -1)
+		inputs = inputs.to(device)
+		### Extract the visual features ###
+		with torch.no_grad():
+			preds = feature_extractor(inputs)
+		visual_features.append(
+			np.reshape(preds.cpu().numpy(), -1))
+	### Format the visual features ###
+	visual_features = np.array(visual_features, dtype='float32')
+	### Save the visual features ###
+	out_file = os.path.join(save_dir, 'ood_'+movie+'_features_visual.h5')
+	flag = 'a' if Path(out_file).exists() else 'w'
+	with h5py.File(out_file, flag) as f:
+		if movie_split in f:
+			del f[movie_split]  # Remove existing group if present
+		group = f.create_group(movie_split)
+		group.create_dataset('visual', data=visual_features, dtype=np.float32)
+	
+	print(f"Saved {movie_split} visual features with shape {visual_features.shape}")
+
