@@ -12,7 +12,7 @@ Placeholder folder - shows where data should be located
 - `feature_extraction_utils_ood.py` - utility functions (OOD data)
 
 ## optimize_models/
-Contains everything needed to optimize and train the final models 
+Contains everything needed to optimize and train the final models; consider that each model was otpimized for 30 rounds, further optimization could lead to even better results
 
 ## utils/
 - `data_utils.py` - utilities function for loading data and analyzing yeo's network
