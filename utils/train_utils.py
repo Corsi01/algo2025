@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import pearsonr
 
-from ..utils.data_utils import set_seed
-from ..utils.MultiSubjectModel_utils import MultiSubjectMLP, MultiSubjectDataset
+from data_utils import set_seed
+from multisubject_utils import MultiSubjectMLP, MultiSubjectDataset
 
 
 def align_features_and_fmri_samples_extended(features, fmri, excluded_samples_start,
