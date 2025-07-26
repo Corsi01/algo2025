@@ -22,7 +22,7 @@ Contains everything needed to optimize and train the final models; consider that
 - `train_utils.py` - model training helper functions
 
 ## Submission scripts  
-All scripts generates predictions ready for CodaBench upload; baseline challenge value is *r = 0.0895*
+All scripts generates predictions ready for CodaBench upload
 - **`submission_id.py`** - generate prediction for model selection phase on ID data (*r = 0.2659 vs baseline r = 0.2033*)
 - **`submission_ood.py`** - generate prediction for model evaluation phase on OOD data (*r = 0.1576 vs baseline r = 0.0895*)
 
